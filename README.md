@@ -34,3 +34,13 @@ Next step will be to derive, in sequence:
 Than, probably I will define a class for penalty functions, and I'll go straight to the definition of a complete augmented lagrangian method.
 
 I hope I'll succeed... :smiley:
+
+## Docs
+
+If you run:
+
+```
+rake doc
+```
+
+the RDoc documentation will be built. This require `rake` and `rdoc` gems installed.
