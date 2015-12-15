@@ -18,4 +18,33 @@ end
 # sure a very confortable way to prototype algorigthms.
 module Optimization
   load './functions.rb'
+
+  ##
+  # This class is a general container for the algorithm that I will define
+  class Algorithm
+    # Objective function
+    attr_reader :obj
+    # List of constraints for the problem
+    attr_reader :cnt
+    # Active set for the constraints
+    attr_reader :active_set
+    # Lagrange function as a proc
+
+    ##
+    # Returns the Lagrange function for a defined problem, in the
+    def lagrange
+
+    end
+
+
+
+
+    private
+    ##
+    # This function re-evaluate lagrange procedure each time
+    def lagrange=
+
+    end
+
+  end
 end
