@@ -159,10 +159,94 @@ module Optimization
   end
 
   ##
+  # Class used to rapresent a single linear function, in the form `a' * x + b`,
+  # in which `a in R(n x 1)` and `b` is a scalar value
+  class LinearFunction < Function
+    # the linear coefficient vector, should be `n x 1`. Also transposed version is saved
+    attr_reader :a, :at
+    # the linear intercept scalar
+    attr_reader :b
+    # Input size is retireved from input vector dimension
+    attr_reader :size
+
+    ##
+    # Initializer for single linear function. Vector a and b must be provided
+    def initialize(a, b)
+      raise ArgumentError, "The first input should be a matrix A (A*x + b)" unless a.is_a? NMatrix
+      raise ArgumentError, "The second input should be a matrix B (A*x + b)" unless b.is_a? Float
+      raise ArgumentError, "a must be of dimensions #{a.shape[0]} x 1" unless a.shape[1] == 1
+
+      @a = a.dup
+      @at = @a.transpose.dup
+      @b = b
+      @size = @a.shape[0]
+    end
+
+    ##
+    # Return function value
+    def f(x)
+      @at.dot(x) + @b
+    end
+    ##
+    # Return analitycal gradient value
+    def g(x)
+      @at
+    end
+    ##
+    # Return analitycal hessina value
+    def h(x)
+      return NMatrix.zeroes([@size, @size])
+    end
+
+    def test(x)
+      check_input(x)
+      return { f: f(x), g: g(x), h: h(x) }
+    end
+
+    # Removing functions that will be not used
+    [:f=, :g=, :h=, :test_output].each do |m|
+      undef_method m if self.instance_methods.include?(m)
+    end
+  end
+
+  ##
+  # Generalized non linear function for an Objective function. Inherits completely
+  # from Optimization::Function class
+  class LinearObjectiveFunction < LinearFunction; end
+
+  ##
+  # Class used to rapresent general linear constraints in form of
+  #  * `:equality` -> a' * x + b = 0
+  #  * `:inequality` -> a' * x + b >= 0
+  class LinearConstraintFunction < LinearFunction
+    # Lambda multiplier as defined in optimization litterature
+    attr_accessor :lambda
+    # A constraint should be of `:equality` or `:inequality` type
+    attr_reader :type
+
+    ##
+    # Initializer. Refer to Optimization::ConstraintFunction::new
+    # and Optimization::LinearFunction::new
+    def initialize(type, a, b)
+      raise ArgumentError, "Type must be a Symbol: :equality or :inequality" unless type.is_a? Symbol
+      raise ArgumentError, "Type must be a Symbol: :equality or :inequality" unless [:equality, :inequality].include? type
+      super(a, b)
+      @type = type
+      @lambda = 0.0
+    end
+
+    ##
+    # Returns if a constraint is active or not. Please notice
+    # that an equality constrain should always be active.
+    def active?(x); f(x) <= 0; end
+  end
+
+
+  ##
   # Class used to represent a linear constraint, of multiple dimension, in the form
   # `a x + b` in which `a in R(m x n)` and `b in R(m x 1)`. Due to efficiency
   # reasons, this class is implemented as a series of function.
-  class LinearFunction < Function
+  class LinearFunctions < Function
     # The linear coefficient matrix, should be `m x n`
     attr_reader :a
     # The linear intercept vector, should be `m x 1`
@@ -189,7 +273,7 @@ module Optimization
     ##
     # Return function value
     def f(x)
-      @a.dot x + @b
+      @a.dot(x) + @b
     end
     ##
     # Return analitycal gradient value
@@ -216,13 +300,13 @@ module Optimization
   ##
   # Generalized non linear function for an Objective function. Inherits completely
   # from Optimization::Function class
-  class LinearObjectiveFunction < LinearFunction; end
+  class LinearObjectiveFunctions < LinearFunctions; end
 
   ##
   # Class used to rapresent general linear constraints in form of
   #  * `:equality` -> A * x + b = 0
   #  * `:inequality` -> A * x + b >= 0
-  class LinearConstraintFunction < LinearFunction
+  class LinearConstraintFunctions < LinearFunctions
     # Lambda multiplier as defined in optimization litterature
     attr_accessor :lambda
     # A constraint should be of `:equality` or `:inequality` type
@@ -388,12 +472,8 @@ REPORT
   puts
 
   ## LINEAR ##########################################################
-  a = N[[1.0,2.0,3.0],
-        [4.0,5.0,6.0],
-        [7.0,8.0,9.0]]
-  b = N[[-30.0],
-        [-20.0],
-        [-10.0]]
+  a = (N[[1.0,2.0,3.0]]).transpose
+  b = 10.0
   c_l = Optimization::LinearConstraintFunction.new(:inequality, a, b)
 
   puts <<-REPORT
@@ -404,11 +484,55 @@ Testing linear function #{c_l.type} constraint:
  in point #{x}
 
  - size: #{c_l.size}
+ - lambda: #{c_l.lambda}
+ - is active in x? #{c_l.active?(x)}
+
+REPORT
+  puts "A = "
+  pp c_l.a
+  puts "b = "
+  pp c_l.b
+  puts
+
+  print "f(x) = "
+  pp c_l.f(x)
+  puts
+  print "g(x) = "
+  pp c_l.g(x)
+  puts
+  print "h(x) = "
+  pp c_l.h(x)
+  puts
+
+
+  ## LINEAR ##########################################################
+  a = N[[1.0,2.0,3.0],
+        [4.0,5.0,6.0],
+        [7.0,8.0,9.0]]
+  b = N[[-30.0],
+        [-20.0],
+        [-10.0]]
+  c_l = Optimization::LinearConstraintFunctions.new(:inequality, a, b)
+
+  puts <<-REPORT
+%%%%%%
+%% LINEARS
+Testing linear function #{c_l.type} constraint:
+
+ in point #{x}
+
+ - size: #{c_l.size}
  - output size: #{c_l.cosize}
  - lambda: #{c_l.lambda}
  - is active in x? #{c_l.active?(x)}
 
 REPORT
+puts "A = "
+pp c_l.a
+puts "b = "
+pp c_l.b
+puts
+
   print "f(x) = "
   pp c_l.f(x)
   puts

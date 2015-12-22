@@ -29,6 +29,7 @@ module Optimization
     # Active set for the constraints
     attr_reader :active_set
     # Lagrange function as a proc
+    attr_reader :lagrange
 
     ##
     # Returns the Lagrange function for a defined problem, in the
