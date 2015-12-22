@@ -239,6 +239,12 @@ module Optimization
     # Returns if a constraint is active or not. Please notice
     # that an equality constrain should always be active.
     def active?(x); f(x) <= 0; end
+
+    ##
+    # Returns the lagrange term for the constraint
+    def lagrange_term(x)
+      return @lambda * f(x)
+    end
   end
 
 
@@ -327,6 +333,12 @@ module Optimization
     # Returns if a constraint is active or not. Please notice
     # that an equality constrain should always be active.
     def active?(x); f(x) <= 0; end
+
+    ##
+    # Returns the lagrange term for the constraint
+    def lagrange_term(x)
+      return @lambda.dot f(x)
+    end
   end
 
   ##
@@ -430,6 +442,12 @@ module Optimization
     # Returns if a constraint is active or not. Please notice
     # that an equality constrain should always be active.
     def active?(x); f(x) <= 0; end
+
+    ##
+    # Returns the lagrange term for the constraint
+    def lagrange_term(x)
+      return @lambda * f(x)
+    end
   end
 end
 
@@ -541,6 +559,8 @@ puts
   puts
   print "h(x) = "
   pp c_l.h(x)
+  print "lagrange_term(x) = "
+  pp c_l.lagrange_term(x)
   puts
 
   ## QUADRATIC ##########################################################

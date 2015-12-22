@@ -23,29 +23,58 @@ module Optimization
   # This class is a general container for the algorithm that I will define
   class Algorithm
     # Objective function
-    attr_reader :obj
+    attr_reader :objective
     # List of constraints for the problem
-    attr_reader :cnt
-    # Active set for the constraints
-    attr_reader :active_set
+    attr_reader :constraints
     # Lagrange function as a proc
     attr_reader :lagrange
+    # History of the optimization problem
+    attr_reader :history
+    # Options for the algorithm
+    attr_accessor :options
+    # Size for problem
+    attr_reader :size
+    # Number of equalities and inequalities
+    attr_reader :eq_size, :ineq_size
 
     ##
-    # Returns the Lagrange function for a defined problem, in the
-    def lagrange
-
+    # Initialize a new optimization problem
+    def initialize(options, objective)
+      raise ArgumentError, "options must be an Hash" unless options.is_a? Hash
+      raise ArgumentError, "Objective function must be of type ObjectiveFunction" unless
+        (objective.is_a? ObjectiveFunction or
+         objective.is_a? LinearObjectiveFunction or
+         objective.is_a? LinearObjectiveFunctions or
+         objective.is_a? QuadraticObjectiveFunction)
+      @options = option
+      @objective = objective
+      @constraints = []
     end
 
-
-
+    ##
+    # Returns the Lagrange function value for a defined problem, in the form of a `Proc`
+    def lagrange(x)
+      return @lagrange.call(x)
+    end
 
     private
     ##
-    # This function re-evaluate lagrange procedure each time
-    def lagrange=
+    # This function re-evaluate lagrange function (this will keep lagrange call faster)
+    def update_lagrange
+      @lagrange = Proc.new do |x|
+        value = @objective.f(x)
+        @contraints.each do |c|
+          value += c.lagrange_term(x)
+        end
+        return value
+      end
 
+      @lagrange_x = Proc.new do |x|
+        
+      end
     end
+
+
 
   end
 end
