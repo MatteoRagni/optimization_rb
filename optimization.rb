@@ -27,7 +27,7 @@ module Optimization
     # List of constraints for the problem
     attr_reader :constraints
     # Lagrange function as a proc
-    attr_reader :lagrange
+    attr_reader :lagrange, :lagrange_x, :lagrange_xx, :lagrange_lambda
     # History of the optimization problem
     attr_reader :history
     # Options for the algorithm
@@ -38,23 +38,63 @@ module Optimization
     attr_reader :eq_size, :ineq_size
 
     ##
-    # Initialize a new optimization problem
+    # Initialize a new optimization problem. As for now, multiple dimensions
+    # linear functions are not supported
     def initialize(options, objective)
       raise ArgumentError, "options must be an Hash" unless options.is_a? Hash
       raise ArgumentError, "Objective function must be of type ObjectiveFunction" unless
         (objective.is_a? ObjectiveFunction or
          objective.is_a? LinearObjectiveFunction or
-         objective.is_a? LinearObjectiveFunctions or
          objective.is_a? QuadraticObjectiveFunction)
       @options = option
       @objective = objective
+      @size = objective.size
       @constraints = []
+      @eq_size = 0
+      @ineq_size = 0
+    end
+
+    ##
+    # Add a new constraint to the problem
+    def add_constraint(c)
+      raise ArgumentError, "Argument must be a constraint function" unless
+        (c.is_a? ConstraintFunction or
+         c.is_a? LinearConstraintFunction or
+         c.is_a? QuadraticConstraintFunction)
+      raise ArgumentError, "Function must accept x of size #{@size}. Is of size #{c.size}" unless @size = c.size
+      @eq_size += 1 if c.type == :equality
+      @ineq_size += 1 if c.type == :inequality
+      @constraints << c
     end
 
     ##
     # Returns the Lagrange function value for a defined problem, in the form of a `Proc`
     def lagrange(x)
       return @lagrange.call(x)
+    end
+
+    ##
+    # Returns the Lagrange derivative for a defined problem, in the form of a `Proc`
+    def lagrange_x(x)
+      return @lagrange_x.call(x)
+    end
+
+    ##
+    # Returns the Lagrange second derivative for a defined problem, in the form of a `Proc`
+    def lagrange_xx(x)
+      return @lagrange_xx.call(x)
+    end
+
+    ##
+    # Returns the Lagrange constraints value for a defined problem, in the form of a `Proc`
+    def lagrange_lambda(x)
+      return @lagrange_lambda.call(x)
+    end
+
+    ##
+    # Solves the optimization problem given a starting guess
+    def solve(x0)
+      raise RuntimeError, "This method is not implemented!"
     end
 
     private
@@ -64,17 +104,31 @@ module Optimization
       @lagrange = Proc.new do |x|
         value = @objective.f(x)
         @contraints.each do |c|
-          value += c.lagrange_term(x)
+          value -= c.lamda * c.f(x)
         end
         return value
       end
 
       @lagrange_x = Proc.new do |x|
-        
+        value = @objective.g(x)
+        @constraints.each do |c|
+          value -= c.lambda * c.g(x)
+        end
+      end
+
+      @lagrange_xx = Proc.new do |x|
+        value = @objective.h(x)
+        @constraints.each do |c|
+          value -= c.lambda * c.h(x)
+        end
+      end
+
+      @lagrange_lambda = Proc.new do |x|
+        value = NMatrix.zeroes([@constraints.size, 1])
+        @constraints.each_with_index do |c, i|
+          value[i, 0] = c.f(x)
+        end
       end
     end
-
-
-
   end
 end
