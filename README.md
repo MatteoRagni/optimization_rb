@@ -39,7 +39,7 @@ I hope I'll succeed... :smiley:
 
 This class is born to resolve problem in the form:
 
-![Objective function and constraints](./.readme/eq1.gif)
+![Objective function and constraints](.readme/eq1.gif)
 
 ## Docs
 
