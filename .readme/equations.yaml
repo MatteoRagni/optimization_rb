@@ -1,0 +1,27 @@
+---
+configuration: |-
+  \usepackage{amsmath}
+  \def \xx {\mathbf{x}}
+
+template: |-
+  \documentclass[preview]{standalone}
+  <%= $eq["configuration"] %>
+  \begin{document}
+  <% if $eq["options"] =~ /inline/ %>$<%= $eq["data"] %>$<% else %>$$\hspace{1cm}<%= $eq["data"] %>\hspace{1cm}(<%= $eq["label"] %>)$$<% end %>
+  \end{document}
+
+equations:
+
+  - name: eq1
+    options:
+    data: |-
+      \begin{array}{rcl}
+      \xx & = & \mathrm{arg}~\mathrm{min}_\xx ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
+      \mathrm{subject~to} & & \mathbf{a}^{T}_{j} \xx + b_j = 0 \qquad j \in \left\{1 \dots m\right\} \\
+       &  & \mathbf{a}^{T}_{j} \xx + b_j \geq 0  \qquad j \in \left\{m+1 \dots r\right\} \quad  m > r \\
+      \end{array}
+
+  - name: eq2
+    options: inline
+    data: |-
+      \dot{x} = f(x,u)

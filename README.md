@@ -20,7 +20,7 @@ As for now we have:
 Remarkable is the fact that also **Objective** and **Constraint** function prototype class are defined. While **Objective**s are perfect carbon copy of general function prototype, **Constraint**s contain also:
 
  * `lambda`: lagrange multiplier is part of the constraint itself
- * `#active?(x)`: method, returns true if function is active.
+ * `#active?(x)`: method, returns true if constraint is active.
 
 Maybe I should implement some sort of memory inside each function, to keep track of what append during optimization problem, or just an update function that forces to store last evaluation. We will see. All those stuff could be inherited from the parent `Optimization::Function`.
 
@@ -34,6 +34,12 @@ Next step will be to derive, in sequence:
 Than, probably I will define a class for penalty functions, and I'll go straight to the definition of a complete augmented lagrangian method.
 
 I hope I'll succeed... :smiley:
+
+### Quadratic optimization
+
+This class is born to resolve problem in the form:
+
+![Objective function and constraints](./.readme/eq1.gif)
 
 ## Docs
 

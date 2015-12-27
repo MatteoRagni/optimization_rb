@@ -26,7 +26,7 @@ module Optimization
     attr_reader :objective
     # List of constraints for the problem
     attr_reader :constraints
-    # Lagrange function as a proc
+    # Lagrange functions as a proc
     attr_reader :lagrange, :lagrange_x, :lagrange_xx, :lagrange_lambda
     # History of the optimization problem
     attr_reader :history
@@ -46,7 +46,7 @@ module Optimization
         (objective.is_a? ObjectiveFunction or
          objective.is_a? LinearObjectiveFunction or
          objective.is_a? QuadraticObjectiveFunction)
-      @options = option
+      @options = options
       @objective = objective
       @size = objective.size
       @constraints = []
@@ -67,6 +67,13 @@ module Optimization
       @constraints << c
     end
 
+    ##
+    # Solves the optimization problem given a starting guess
+    def solve(x0)
+      raise RuntimeError, "This method is not implemented!"
+    end
+
+    private
     ##
     # Returns the Lagrange function value for a defined problem, in the form of a `Proc`
     def lagrange(x)
@@ -91,13 +98,6 @@ module Optimization
       return @lagrange_lambda.call(x)
     end
 
-    ##
-    # Solves the optimization problem given a starting guess
-    def solve(x0)
-      raise RuntimeError, "This method is not implemented!"
-    end
-
-    private
     ##
     # This function re-evaluate lagrange function (this will keep lagrange call faster)
     def update_lagrange
@@ -131,4 +131,83 @@ module Optimization
       end
     end
   end
+
+  ##
+  # Class that represents a quadratic optimizer with active set search.
+  class QuadraticOptimizer < Algorithm
+    # Active set
+    attr_reader :active_set, :active_inequality
+
+    ##
+    # Initializer for our quadratic optimizer with active set
+    def initialize(options, objective)
+      raise ArgumentError, "Objective function must be a QuadraticObjectiveFunction" unless objective.is_a? QuadraticObjectiveFunction
+      super(options, objective)
+    end
+
+    ##
+    # Add a constraint. It could be only of the linear type
+    def add_constraint(c)
+      raise ArgumentError, "This algorithm accepts only linear constraint" unless c.is_a? LinearConstraintFunction
+      super(c)
+    end
+
+    ##
+    # Solves algorithm when a
+    def solve(x0)
+      x = x0
+      active_set(x)
+
+      @history.x = []
+      @history.f = []
+
+      @history.x << x
+      @history.f << @objective.f(x)
+      loop do
+        f, x, lambda = cbqo(x)
+
+        @history.x << x
+        @history.f << @objective.f(x)
+      end
+    end
+
+    private
+    ##
+    # Evaluates the active set for the defined step. Also evaluate active inequality set
+    def active_set(x)
+      @active_set = []
+      @active_inequality = []
+      @constraints.each_with_index do |c, i|
+        if c.active? x
+          @active_set << i
+          @active_inequality << i if c.type == :inequality
+        end
+      end
+    end
+
+    ##
+    #
+    def cbqo(x)
+
+      return f, x, lambda
+    end
+  end
 end
+
+if $0 == __FILE__ then
+  # Definition
+  a = N[[1.0,2.0,3.0],
+        [4.0,5.0,6.0],
+        [7.0,8.0,9.0]]
+  b = N[[-30.0],
+        [-20.0],
+        [-10.0]]
+  c = 35.0
+  obj = Optimization::QuadraticObjectiveFunction.new(a, b, c)
+
+  alg = Optimization::QuadraticOptimizer.new({}, obj)
+end
+
+
+## Todo
+# - aggiungere una funzione di sorting per avere tutte le disuguaglianze in fondo
