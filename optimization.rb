@@ -73,6 +73,17 @@ module Optimization
       raise RuntimeError, "This method is not implemented!"
     end
 
+    def feasible?(x)
+      @constraints.each do |c|
+        case c.type
+        when :equality
+          return false if c.f(x) != 0.0
+        when :inequality
+          return false if c.f(x) < 0.0
+        end
+      end
+    end
+
     private
     ##
     # Returns the Lagrange function value for a defined problem, in the form of a `Proc`
@@ -136,7 +147,7 @@ module Optimization
   # Class that represents a quadratic optimizer with active set search.
   class QuadraticOptimizer < Algorithm
     # Active set
-    attr_reader :active_set, :active_inequality
+    attr_reader :active_set
 
     ##
     # Initializer for our quadratic optimizer with active set
@@ -155,19 +166,23 @@ module Optimization
     ##
     # Solves algorithm when a
     def solve(x0)
+      reorder_constraints
+      cholesky
       x = x0
       active_set(x)
 
-      @history.x = []
-      @history.f = []
-
-      @history.x << x
-      @history.f << @objective.f(x)
       loop do
-        f, x, lambda = cbqo(x)
+        z, lambdas = q_problem
+        if feasible? z
+          x = line_problem(z, x)
+          active_set(x)
+        else
+          x = z
+          feasible_set(x)
+          @feasible_set.each #XXX
 
-        @history.x << x
-        @history.f << @objective.f(x)
+        end
+
       end
     end
 
@@ -176,20 +191,69 @@ module Optimization
     # Evaluates the active set for the defined step. Also evaluate active inequality set
     def active_set(x)
       @active_set = []
-      @active_inequality = []
-      @constraints.each_with_index do |c, i|
-        if c.active? x
-          @active_set << i
-          @active_inequality << i if c.type == :inequality
+      @constraints.each_with_index do |c, j|
+        case c.type
+          when :equality
+            @active_set << j
+          when :inequality
+            @active_set << j if c.active? x
         end
       end
     end
 
     ##
-    #
-    def cbqo(x)
+    # Extracts matrix A and vector b given the active set
+    def active_set_matrix
+      a_ary = []
+      b_ary = []
+      @active_set.each do |j|
+        a_ary << @constraints[j].a.to_flat_array
+        b_ary << @constraints[j].b.to_flat_array
+      end
+      a_matrix = NMatrix.new([@size, @active_set], a_ary.flatten).transpose
+      b_matrix = NMatrix.new([@active_set.size, 1], b_ary.flatten)
+      return a_matrix, b_matrix
+    end
 
-      return f, x, lambda
+    ##
+    # Evaluate Cholesky decomposition, used in subproblem solution
+    def cholesky
+      @c, @ct = @objective.s.factorize_cholesky
+      @l = @c.invert
+      @lt = @l.transpose
+      @g = @objective.g
+      @d = (@lt.dot(@l)).dot(@g)
+      @hinv = @lt.dot(@lt)
+    end
+
+    ##
+    # Move to the first positions equality constraints. Used to define the active set.
+    def reorder_constraints
+      eq = []
+      ineq = []
+      @constraints.each do |c|
+        eq << c.dup if c.type == :equality
+        ineq << c.dup if c.type == :inequality
+      end
+      @constraints = []
+      eq.each do |c|; @constraints << c; end
+      ineq.each do |c|; @constraints << c; end
+    end
+
+    ##
+    # Returns solution for the sub-problem
+    def q_problem
+      a, b    = active_set_matrix
+      g       = a.transpose.dot(@hinv.dot(a))
+      gc, gct = g.factorize_cholesky
+      gl      = gc.invert
+      glt     = gl.transpose
+      ginv    = glt.dot(gl)
+
+      lambdas = ginv.dot(a.transpose.dot(@d) - b)
+      xs      = @hinv.dot(a.dot(lambdas) - @g)
+
+      return xs, lambdas
     end
   end
 end
@@ -206,8 +270,5 @@ if $0 == __FILE__ then
   obj = Optimization::QuadraticObjectiveFunction.new(a, b, c)
 
   alg = Optimization::QuadraticOptimizer.new({}, obj)
+  binding.pry
 end
-
-
-## Todo
-# - aggiungere una funzione di sorting per avere tutte le disuguaglianze in fondo

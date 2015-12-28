@@ -65,7 +65,7 @@ that is solved in lagrangian form:
 
 ![Lagrange formulation](.readme/eq_lagrange_formula.gif)
 
-that leads us to the system that must be solved:
+with _H_ symmetric part of the _M_ matrix. The system that must be solved:
 
 ![System of equations](.readme/eq_system_of_eq.gif)
 
@@ -143,6 +143,7 @@ The strategy could be implemented as follows:
 
 def GeneralQuadratic( x0 )
   x = x0                                  # Initial point must be feasible
+  L = cholesky(H)**(-1)
 
   activeSet = active_set(x)               # cf. equation (2)
   feasibleSet = feasible_set(x)           # cf. equation (1.b, 1.c)
@@ -151,7 +152,7 @@ def GeneralQuadratic( x0 )
     z, λ = q(activeSet)                   # cf. equation (13)
 
     if violates_constraints?(z)
-      x = best_on_line(z, x)                 # cf. equation ()
+      x = best_on_line(z, x)                 # cf. equation (16)
       activeSet = active_set(x)
 
     else
