@@ -37,16 +37,79 @@ I hope I'll succeed... :smiley:
 
 ### Quadratic optimization
 
+> Not implemented yet
+
+#### Problem formulation
+
 This class is born to resolve problem in the form:
 
-![Objective function and constraints](.readme/eq1.gif)
+![Objective function and constraints](.readme/eq_problem.gif)
+
+#### Active set sub-problem
+
+The first definition we must give is about the so called **active set**. This set is about the equations that are _active_ given an point **z**:
+
+![Active set definition](.readme/eq_activeset.gif)
+
+from the **active set** we create the constraint matrix _A_ and **b** for the sub-problem:
+
+![A matrix definition](.readme/eq_Amatrix.gif)
+
+such that we have a new simpler optimization to solve, with only equality constraints:
+
+![New problem](.readme/eq_simple_problem.gif)
+
+that is solved in lagrangian form:
+
+![Lagrange formulation](.readme/eq_lagrange_formula.gif)
+
+that leads us to the system that must be solved:
+
+![System of equations](.readme/eq_system_of_eq.gif)
+
+#### Sub-problem solution
+
+In sub-problem solution is possible to identify:
+
+ * fixed elements, such as _H_, **g**
+ * variable elements in function of the **active set**: _A_, **b**
+
+In particular, _H_, that is a positive definite matrix (or at limit semi-positive definite), should be directly decomposed using Cholesky's method:
+
+![Cholesky decomposition](.readme/eq_decomposition.gif)
+
+Solving the equation _(6.a)_ for **x** gives us:
+
+![Solved for x](.readme/eq_sol_1eq.gif)
+
+and using this solution in _(6.b)_:
+
+![x substitution](.readme/eq_sol_2eq.gif)
+
+![x substitution 2](.readme/eq_sol_3eq.gif)
+
+![x substitution 3](.readme/eq_sol_4eq.gif)
+
+we obtain the final solution for this problem:
+
+![lambda solution](.readme/eq_sol_5eq.gif)
+
+When everything is together, the final solution for the optimization problem stated in _(4)_ is the following:
+
+![supbroblem solution](.readme/eq_system_solution.gif)
+
+
+
+
 
 ## Docs
 
-If you run:
+There is a `rake` task to create documentation:
 
 ```
 rake doc
 ```
 
 the RDoc documentation will be built. This require `rake` and `rdoc` gems installed.
+
+## References

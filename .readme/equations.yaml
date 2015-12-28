@@ -2,26 +2,100 @@
 configuration: |-
   \usepackage{amsmath}
   \def \xx {\mathbf{x}}
+  \def \activeset {\mathcal{A}}
+  \def \real {\mathbb{R}}
 
 template: |-
   \documentclass[preview]{standalone}
   <%= $eq["configuration"] %>
   \begin{document}
-  <% if $eq["options"] =~ /inline/ %>$<%= $eq["data"] %>$<% else %>$$\hspace{1cm}<%= $eq["data"] %>\hspace{1cm}(<%= $eq["label"] %>)$$<% end %>
+  <% if $eq["options"] =~ /inline/ %>$$\hspace{3.5cm} <%= $eq["data"] %> \hspace{3.5cm}$$<% else %>$$\hspace{3cm} <%= $eq["data"] %>\hspace{3cm}(<%= $eq["label"] %>)$$<% end %>
   \end{document}
 
 equations:
 
-  - name: eq1
+  - name: eq_problem
     options:
     data: |-
+      \arraycolsep=1.4pt\def\arraystretch{2}
       \begin{array}{rcl}
       \xx & = & \mathrm{arg}~\mathrm{min}_\xx ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
       \mathrm{subject~to} & & \mathbf{a}^{T}_{j} \xx + b_j = 0 \qquad j \in \left\{1 \dots m\right\} \\
        &  & \mathbf{a}^{T}_{j} \xx + b_j \geq 0  \qquad j \in \left\{m+1 \dots r\right\} \quad  m > r \\
       \end{array}
 
-  - name: eq2
-    options: inline
+  - name: eq_activeset
+    options:
     data: |-
-      \dot{x} = f(x,u)
+      \activeset(\mathbf{z}) = \left\{ 1 \dots m \right\} \cup \left\{ j \in \left\{ m+1 \dots r \right\} ~|~ \mathbf{a}^{T}_{j} \mathbf{z} + b_j = 0  \right\}
+
+  - name: eq_Amatrix
+    options:
+    data: |-
+      \arraycolsep=1.4pt\def\arraystretch{2.2}
+      \begin{array}{rcl}
+      A & = & A(\activeset(\mathbf{z})) = \left[ \mathbf{a}_j ~|~ j \in \activeset(\mathbf{z}) \right] \\
+      \mathbf{b} & = & \mathbf{b}(\activeset(\mathbf{z})) = \left[ b_j ~|~ j \in \activeset(\mathbf{z}) \right]
+      \end{array}
+
+  - name: eq_simple_problem
+    options:
+    data: |-
+      \arraycolsep=1.4pt\def\arraystretch{2.2}
+      \begin{array}{rcl}
+      \xx & = & \mathrm{arg}~\mathrm{min}_\xx ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
+      \mathrm{subject~to} & & A^{T} \xx + \mathbf{b} = 0 \qquad j \in \activeset({\xx})
+      \end{array}
+
+  - name: eq_lagrange_formula
+    options:
+    data: |-
+      \mathcal{L} = \dfrac{1}{2} \xx^{T} H \xx + \lambda~\left(\mathbf{g}^{T}\xx + A^{T} \xx + \mathbf{b}\right)
+
+  - name: eq_system_of_eq
+    options:
+    data: |-
+      \arraycolsep=1.4pt\def\arraystretch{2.2}
+      \begin{array}{rcl}
+      H \xx + \mathbf{g} - A \lambda & = & 0 = \dfrac{\partial \mathcal{L}}{\partial \xx} \\
+      A^{T} \xx + \mathbf{b} & = & 0 = \dfrac{\partial \mathcal{L}}{\partial \lambda}
+      \end{array}
+
+  - name: eq_decomposition
+    options:
+    data: |-
+      H = C~C^{T} \qquad H^{-1} = (C^{-1})^{T}~(C^{-1}) = L^{T}~L
+
+  - name: eq_sol_1eq
+    options:
+    data: |-
+      \xx = H^{-1} \left( A \lambda - \mathbf{g} \right)
+
+  - name: eq_sol_2eq
+    options:
+    data: |-
+      A^{T} \left( H^{-1} \left( A \lambda - \mathbf{g} \right) \right) + \mathbf{b} = 0
+
+  - name: eq_sol_3eq
+    options:
+    data: |-
+      A^{T} H^{-1} A \lambda - A^{T} H^{-1} \mathbf{g} + \mathbf{b} = 0
+
+  - name: eq_sol_4eq
+    options:
+    data: |-
+      G = A^T H^{-1} A = \left( A^{T} L^{T} \right)\left( (L A \right) \qquad \mathbf{d} = H^{-1}\mathbf{b}
+
+  - name: eq_sol_5eq
+    options:
+    data: |-
+      \lambda = G^{-1} \left( A^{T} \mathbf{d} - \mathbf{b} \right)
+
+  - name: eq_system_solution
+    options:
+    data: |-
+      \mathbf{x},\lambda = q(\mathcal{A}) = \left\{
+      \begin{array}{rcl}
+        \lambda & = & \left( A^T L ^T L A \right)^{-1} \left( A^T L ^T L \mathbf{g} - \mathbf{b} \right) \\
+        \mathbf{x} & = & L^T L \left( A \left( A^T L ^T L A \right)^{-1} \left( A^T L ^T L \mathbf{g} - \mathbf{b} \right) - \mathbf{g} \right)
+      \end{array} \right.
