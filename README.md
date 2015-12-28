@@ -45,6 +45,8 @@ This class is born to resolve problem in the form:
 
 ![Objective function and constraints](.readme/eq_problem.gif)
 
+It is called **feasible set** the domain identified by the constraints of the problem (**x** is **feasible** if respects _all constraints_).
+
 #### Active set sub-problem
 
 The first definition we must give is about the so called **active set**. This set is about the equations that are _active_ given an point **z**:
@@ -94,13 +96,82 @@ we obtain the final solution for this problem:
 
 ![lambda solution](.readme/eq_sol_5eq.gif)
 
-When everything is together, the final solution for the optimization problem stated in _(4)_ is the following:
+The final solution for the optimization problem stated in _(4)_ is the following:
 
 ![supbroblem solution](.readme/eq_system_solution.gif)
 
+Solution of _(13)_ will be called also: **x**, _λ_ = k()
 
+#### From active set to feasible set
 
+Once we have solved for the active set, we have to check that found solution satisfies all the constraints (i.e.: **x** belongs to the feasible set described by equations _(1.b, 1.c)_). If the solution of optimization sub-problem does not satisfies the complete optimization problem (i.e.: due to some ignored constraints), we have to identify the best nearest solution. This is done through a line search. Given _Φ_ as the set of violated constraints:
 
+![Violated constraints](.readme/eq_violated_cnt.gif)
+
+It can be used as method to choose the best solution the system of equations:
+
+![Best point](.readme/eq_best_solution.gif)
+
+this is valid searching direction due to problem linearity. Solving for _t_ leads to:
+
+![solving for t](.readme/eq_t_solution.gif)
+
+as algorithm:
+
+```ruby
+# This is only a Ruby "pseudocode"
+# Suppose constraints visible as at[j], b[j]
+# Suppose Φ visible
+
+def best_on_line(z, x)
+  t_set = []
+  Φ.each do |j|
+    t_set << (b[j] - at[j] * x) / (at[j] * (z - x))
+  end
+  return x + t_set.min * (z - x)
+end
+```
+
+The new active constraint must be added to the **active set**. If more index share the same value of _t_, than all indexes must be added to the **active set**.
+
+#### Quadratic programming algorithm
+
+The strategy could be implemented as follows:
+
+``` ruby
+# This is only a Ruby "pseudocode"
+
+def GeneralQuadratic( x0 )
+  x = x0                                  # Initial point must be feasible
+
+  activeSet = active_set(x)               # cf. equation (2)
+  feasibleSet = feasible_set(x)           # cf. equation (1.b, 1.c)
+
+  while true
+    z, λ = q(activeSet)                   # cf. equation (13)
+
+    if violates_constraints?(z)
+      x = best_on_line(z, x)                 # cf. equation ()
+      activeSet = active_set(x)
+
+    else
+      x = z
+      feasibleSet = []
+      activeSet.each do |j|
+        feasibleSet << j if λ[j] < 0      # check if an active constraint
+                                          # is not active
+      end
+
+      if feasibleSet == []
+        break
+      else
+        activeSet = activeSet - feasibleSet
+      end
+    end
+  end
+  return x
+end
+```
 
 ## Docs
 

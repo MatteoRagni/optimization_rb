@@ -19,7 +19,7 @@ equations:
     data: |-
       \arraycolsep=1.4pt\def\arraystretch{2}
       \begin{array}{rcl}
-      \xx & = & \mathrm{arg}~\mathrm{min}_\xx ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
+      \xx & = & \mathrm{arg}~\underset{\xx}{\mathrm{min}} ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
       \mathrm{subject~to} & & \mathbf{a}^{T}_{j} \xx + b_j = 0 \qquad j \in \left\{1 \dots m\right\} \\
        &  & \mathbf{a}^{T}_{j} \xx + b_j \geq 0  \qquad j \in \left\{m+1 \dots r\right\} \quad  m > r \\
       \end{array}
@@ -43,7 +43,7 @@ equations:
     data: |-
       \arraycolsep=1.4pt\def\arraystretch{2.2}
       \begin{array}{rcl}
-      \xx & = & \mathrm{arg}~\mathrm{min}_\xx ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
+      \xx & = & \mathrm{arg}~\underset{\xx}{\mathrm{min}} ~ \dfrac{1}{2} \xx^{T} H \xx + \mathbf{g}^{T}\xx + c \\
       \mathrm{subject~to} & & A^{T} \xx + \mathbf{b} = 0 \qquad j \in \activeset({\xx})
       \end{array}
 
@@ -99,3 +99,22 @@ equations:
         \lambda & = & \left( A^T L ^T L A \right)^{-1} \left( A^T L ^T L \mathbf{g} - \mathbf{b} \right) \\
         \mathbf{x} & = & L^T L \left( A \left( A^T L ^T L A \right)^{-1} \left( A^T L ^T L \mathbf{g} - \mathbf{b} \right) - \mathbf{g} \right)
       \end{array} \right.
+
+  - name: eq_violated_cnt
+    options:
+    data: |-
+      \Phi(\mathbf{z}) = \left\{ j \in \left\{ m+1 \dots r \right\} ~|~ \mathbf{a}_{j}^{T} \mathbf{z} + b_j < 0 \right\}
+
+  - name: eq_best_solution
+    options:
+    data: |-
+      \arraycolsep=1.4pt\def\arraystretch{2.2}
+      \begin{array}{rcl}
+        \xx^* & = & \xx + t_j ~ (\mathbf{z} - \xx)  \\
+        0 & = & \mathbf{a}_j^T \xx^* + b_j
+      \end{array} \qquad 0 < t_j < 1, ~ j \in \Phi
+
+  - name: eq_t_solution
+    options:
+    data: |-
+      t = \underset{t_j,~j \in \Phi}{\mathrm{min}} \left( \dfrac{b_j - \mathbf{a}_j^T \xx}{ \mathbf{a}_j^T \left( \mathbf{z} - \xx \right)} \right)
