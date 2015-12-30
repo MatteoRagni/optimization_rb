@@ -47,6 +47,7 @@ module Optimization
          objective.is_a? LinearObjectiveFunction or
          objective.is_a? QuadraticObjectiveFunction)
       @options = options
+      @options[:debug] = 0 unless @options[:debug]
       @objective = objective
       @size = objective.size
       @constraints = []
@@ -73,6 +74,8 @@ module Optimization
       raise RuntimeError, "This method is not implemented!"
     end
 
+    ##
+    # Returns false if a point is not feasible (does not live in _P_ domain)
     def feasible?(x)
       is = true
       @constraints.each do |c|
@@ -85,6 +88,18 @@ module Optimization
       end
       return is
     end
+
+=begin
+    ##
+    # Returns the feasible set (all indexes of violated constraints)
+    def feasible_set(x)
+      ret = []
+      @constraints.each do |c|
+        next if c.type == :equality
+
+      end
+    end
+=end
 
     private
     ##
@@ -171,13 +186,24 @@ module Optimization
       raise ArgumentError, "Initial guess must be a vector" unless x0.is_a? NMatrix
       raise ArgumentError, "x0 has a wrong size. Must be of size #{@size} x 1" unless (x0.shape == [@size, 1])
 
+      puts "Starting optimization problem".green if @options[:debug] > 0
+      puts " - Reordering constraints".green if @options[:debug] > 0
       reorder_constraints
+      puts " - Cholesky factorization for H matrix and g vector".green if @options[:debug] > 0
       cholesky
-      x = x0
-      active_set(x)
 
+      x = x0
+
+      puts " - Evaluating initial active set".green if @options[:debug] > 0
+      active_set(x)
+      puts "   A = #{@active_set}".yellow if @options[:debug] > 0
+
+      puts " - Starting solution loop".green if @options[:debug] > 0
       loop do
+        puts "  -- Soving quadratic programming problem".green if @options[:debug] > 1
         z, lambdas = q_problem
+
+
         if not feasible? z
           x = line_problem(z, x)
           active_set(x)
@@ -187,7 +213,7 @@ module Optimization
           if @feasible_set == []
             break
           else
-            @active_set = @active_set - @feasible_set
+            active_set(x)
           end
         end
       end
@@ -198,17 +224,15 @@ module Optimization
     ##
     # Executes a line search to find the best point on the contraints
     def line_problem(z, x)
-      binding.pry
       t_set = []
       @constraints.each do |c|
         if (c.type == :inequality and c.f(z) < 0.0)
-          binding.pry
           t = (-c.b - (c.a.transpose.dot(x))[0])/((c.a.transpose.dot((x - z)))[0])
           #raise RuntimeError, "t is too big: 0 <= t = #{t} <= 1" if (t < 0 or t > 1)
           t_set << t
         end
       end
-      binding.pry
+      t_set.each_with_index { |t,i| (@active_set - [i]) + [i] if t == t_set.min }
       ret = x + ((x - z) * t_set.min)
       return ret
     end
@@ -257,8 +281,8 @@ module Optimization
       @l = @c.invert
       @lt = @l.transpose
       @g = @objective.b
-      @d = (@lt.dot(@l)).dot(@g)
       @hinv = @lt.dot(@lt)
+      @d = @hinv.dot(@g)
     end
 
     ##
@@ -278,20 +302,20 @@ module Optimization
     ##
     # Returns solution for the sub-problem
     def q_problem
+      puts "A = " + @active_set.to_s.green
       binding.pry
       if @active_set != []
-        a, b    = active_set_matrix
-        g       = a.transpose.dot(@hinv.dot(a))
-        gc, gct = g.factorize_cholesky
-        gl      = gc.invert
-        glt     = gl.transpose
-        ginv    = glt.dot(gl)
+        a, b = active_set_matrix
+        ginv = a.transpose.dot(@hinv.dot(a)).invert
 
         lambdas = ginv.dot(a.transpose.dot(@d) - b)
         xs      = @hinv.dot(a.dot(lambdas) - @g)
       else
-
+        lambdas = nil
+        xs = @d
       end
+      puts "x = " + xs.to_s.red
+      puts "λ = " + lambdas.to_s.yellow
       return xs, lambdas
     end
   end
@@ -327,7 +351,7 @@ if $0 == __FILE__ then
   cnt_z = Optimization::LinearConstraintFunction.new(:inequality, a, b)
 
   # Creation of a new test scenario
-  alg = Optimization::QuadraticOptimizer.new({}, obj)
+  alg = Optimization::QuadraticOptimizer.new({debug: 10 > 0}, obj)
   alg.add_constraint(cnt)
   alg.add_constraint(cnt_x)
   alg.add_constraint(cnt_y)
