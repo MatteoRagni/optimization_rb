@@ -1,15 +1,18 @@
 ---
 configuration: |-
+  \usepackage{varwidth}
   \usepackage{amsmath}
   \def \xx {\mathbf{x}}
   \def \activeset {\mathcal{A}}
   \def \real {\mathbb{R}}
 
 template: |-
-  \documentclass[preview]{standalone}
+  \documentclass{standalone}
   <%= $eq["configuration"] %>
   \begin{document}
-  <% if $eq["options"] =~ /inline/ %>$$\hspace{3.5cm} <%= $eq["data"] %> \hspace{3.5cm}$$<% else %>$$\hspace{3cm} <%= $eq["data"] %>\hspace{3cm}(<%= $eq["label"] %>)$$<% end %>
+  \begin{varwidth}{\linewidth}
+  <% if $eq["options"] =~ /nolabel/ %>$$<%= $eq["data"] %>$$<% else %>$$<%= $eq["data"] %>\hspace{3cm}(<%= $eq["label"] %>)$$<% end %>
+  \end{varwidth}
   \end{document}
 
 equations:
@@ -117,4 +120,4 @@ equations:
   - name: eq_t_solution
     options:
     data: |-
-      t = \underset{t_j,~j \in \Phi}{\mathrm{min}} \left( \dfrac{b_j - \mathbf{a}_j^T \xx}{ \mathbf{a}_j^T \left( \mathbf{z} - \xx \right)} \right)
+      t = \underset{t_j,~j \in \Phi}{\mathrm{min}} \left( \dfrac{-b_j - \mathbf{a}_j^T \xx}{ \mathbf{a}_j^T \left( \mathbf{z} - \xx \right)} \right)

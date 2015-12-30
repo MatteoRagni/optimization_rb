@@ -6,7 +6,7 @@
 # Copyright:: Copyright (2015) University of Trento
 # License:: Distributes under the same terms as Ruby
 
-gems = %w|nmatrix nmatrix/lapacke colorize pry|
+gems = %w|nmatrix nmatrix/lapacke colorize pry-byebug|
 gems.each do |gem|
   #raise LoadError, "Cannot Load Gem :: #{gem}" unless require gem
   require gem
@@ -74,14 +74,16 @@ module Optimization
     end
 
     def feasible?(x)
+      is = true
       @constraints.each do |c|
         case c.type
         when :equality
-          return false if c.f(x) != 0.0
+          is false if c.f(x) != 0.0
         when :inequality
-          return false if c.f(x) < 0.0
+          is = false if c.f(x) < 0.0
         end
       end
+      return is
     end
 
     private
@@ -166,6 +168,9 @@ module Optimization
     ##
     # Solves algorithm when a
     def solve(x0)
+      raise ArgumentError, "Initial guess must be a vector" unless x0.is_a? NMatrix
+      raise ArgumentError, "x0 has a wrong size. Must be of size #{@size} x 1" unless (x0.shape == [@size, 1])
+
       reorder_constraints
       cholesky
       x = x0
@@ -173,20 +178,41 @@ module Optimization
 
       loop do
         z, lambdas = q_problem
-        if feasible? z
+        if not feasible? z
           x = line_problem(z, x)
           active_set(x)
         else
           x = z
-          feasible_set(x)
-          @feasible_set.each #XXX
-
+          feasible_set(x, lambdas)
+          if @feasible_set == []
+            break
+          else
+            @active_set = @active_set - @feasible_set
+          end
         end
-
       end
+      return x
     end
 
     private
+    ##
+    # Executes a line search to find the best point on the contraints
+    def line_problem(z, x)
+      binding.pry
+      t_set = []
+      @constraints.each do |c|
+        if (c.type == :inequality and c.f(z) < 0.0)
+          binding.pry
+          t = (-c.b - (c.a.transpose.dot(x))[0])/((c.a.transpose.dot((x - z)))[0])
+          #raise RuntimeError, "t is too big: 0 <= t = #{t} <= 1" if (t < 0 or t > 1)
+          t_set << t
+        end
+      end
+      binding.pry
+      ret = x + ((x - z) * t_set.min)
+      return ret
+    end
+
     ##
     # Evaluates the active set for the defined step. Also evaluate active inequality set
     def active_set(x)
@@ -202,15 +228,24 @@ module Optimization
     end
 
     ##
+    # Creates a new feasible set
+    def feasible_set(x, lambdas)
+      @feasible_set = []
+      @active_set.each_with_index do |j, i|
+        @feasible_set << j if lambdas[i] < 0
+      end
+    end
+
+    ##
     # Extracts matrix A and vector b given the active set
     def active_set_matrix
       a_ary = []
       b_ary = []
       @active_set.each do |j|
         a_ary << @constraints[j].a.to_flat_array
-        b_ary << @constraints[j].b.to_flat_array
+        b_ary << @constraints[j].b
       end
-      a_matrix = NMatrix.new([@size, @active_set], a_ary.flatten).transpose
+      a_matrix = NMatrix.new([@size, @active_set.size], a_ary.flatten)
       b_matrix = NMatrix.new([@active_set.size, 1], b_ary.flatten)
       return a_matrix, b_matrix
     end
@@ -221,7 +256,7 @@ module Optimization
       @c, @ct = @objective.s.factorize_cholesky
       @l = @c.invert
       @lt = @l.transpose
-      @g = @objective.g
+      @g = @objective.b
       @d = (@lt.dot(@l)).dot(@g)
       @hinv = @lt.dot(@lt)
     end
@@ -243,32 +278,61 @@ module Optimization
     ##
     # Returns solution for the sub-problem
     def q_problem
-      a, b    = active_set_matrix
-      g       = a.transpose.dot(@hinv.dot(a))
-      gc, gct = g.factorize_cholesky
-      gl      = gc.invert
-      glt     = gl.transpose
-      ginv    = glt.dot(gl)
+      binding.pry
+      if @active_set != []
+        a, b    = active_set_matrix
+        g       = a.transpose.dot(@hinv.dot(a))
+        gc, gct = g.factorize_cholesky
+        gl      = gc.invert
+        glt     = gl.transpose
+        ginv    = glt.dot(gl)
 
-      lambdas = ginv.dot(a.transpose.dot(@d) - b)
-      xs      = @hinv.dot(a.dot(lambdas) - @g)
+        lambdas = ginv.dot(a.transpose.dot(@d) - b)
+        xs      = @hinv.dot(a.dot(lambdas) - @g)
+      else
 
+      end
       return xs, lambdas
     end
   end
 end
 
 if $0 == __FILE__ then
-  # Definition
-  a = N[[1.0,2.0,3.0],
-        [4.0,5.0,6.0],
-        [7.0,8.0,9.0]]
-  b = N[[-30.0],
-        [-20.0],
-        [-10.0]]
+  # Definition of the objective function
+  m = N[[1.0,2.0,0.0],
+        [0.0,3.0,1.0],
+        [0.0,1.0,5.0]]
+  g = N[[-3.0],
+        [-2.0],
+        [-1.0]]
   c = 35.0
-  obj = Optimization::QuadraticObjectiveFunction.new(a, b, c)
+  obj = Optimization::QuadraticObjectiveFunction.new(m, g, c)
+  # The optimum is in x = { 3.66667, -0.66667, 0.33333}
 
+  # Defintion of a constraint on the minimum
+  a = NMatrix.new([3,1],[8.0/3.0, -5.0/3.0, -2.0/3.0])
+  b = -32.0/3.0
+  cnt = Optimization::LinearConstraintFunction.new(:inequality, a, b)
+
+  a = NMatrix.new([3,1],[1.0,0.0,0.0])
+  b = 0.0
+  cnt_x = Optimization::LinearConstraintFunction.new(:inequality, a, b)
+
+  a = NMatrix.new([3,1],[0.0,-1.0,0.0])
+  b = 0.0
+  cnt_y = Optimization::LinearConstraintFunction.new(:inequality, a, b)
+
+  a = NMatrix.new([3,1],[0.0,0.0,1.0])
+  b = 0.0
+  cnt_z = Optimization::LinearConstraintFunction.new(:inequality, a, b)
+
+  # Creation of a new test scenario
   alg = Optimization::QuadraticOptimizer.new({}, obj)
+  alg.add_constraint(cnt)
+  alg.add_constraint(cnt_x)
+  alg.add_constraint(cnt_y)
+  alg.add_constraint(cnt_z)
+  x = alg.solve(NMatrix.new([3,1], [33.0, 33.0, 33.0]))
+
   binding.pry
 end

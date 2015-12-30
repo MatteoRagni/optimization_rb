@@ -185,7 +185,7 @@ module Optimization
     ##
     # Return function value
     def f(x)
-      @at.dot(x) + @b
+      (@at.dot(x) + @b)[0]
     end
     ##
     # Return analitycal gradient value
@@ -358,7 +358,7 @@ module Optimization
     # The complete matrix A, should be `n x n`
     attr_reader :a
     # The linear coefficient vector, should be `n x 1`. It is automatically transposed
-    attr_reader :bt
+    attr_reader :bt, :b
     # Input size is retrieved from matrix dimensions
     attr_reader :size
 
@@ -374,7 +374,8 @@ module Optimization
       @a = a.dup
       @s = (@a + @a.transpose) * 0.5
       @w = (@a - @s)
-      @bt = b.transpose.dup
+      @b = b
+      @bt = @b.transpose.dup
       @c = N[[c]]
       @size = @a.shape[0]
     end
