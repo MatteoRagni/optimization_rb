@@ -26,8 +26,6 @@ module Optimization
     attr_reader :objective
     # List of constraints for the problem
     attr_reader :constraints
-    # Lagrange functions as a proc
-    attr_reader :lagrange, :lagrange_x, :lagrange_xx, :lagrange_lambda
     # History of the optimization problem
     attr_reader :history
     # Options for the algorithm
@@ -46,8 +44,11 @@ module Optimization
         (objective.is_a? ObjectiveFunction or
          objective.is_a? LinearObjectiveFunction or
          objective.is_a? QuadraticObjectiveFunction)
+
       @options = options
-      @options[:debug] = 0 unless @options[:debug]
+      @options[:debug]     = 0     unless @options[:debug]
+      @options[:tolerance] = 1E-10 unless @options[:tolerance]
+
       @objective = objective
       @size = objective.size
       @constraints = []
@@ -77,251 +78,53 @@ module Optimization
     ##
     # Returns false if a point is not feasible (does not live in _P_ domain)
     def feasible?(x)
-      is = true
+      feas = true
       @constraints.each do |c|
-        case c.type
-        when :equality
-          is false if c.f(x) != 0.0
-        when :inequality
-          is = false if c.f(x) < 0.0
-        end
+        feas = false if is_violated?(c,x)
       end
-      return is
+      puts inspect_constraints(x) if @options[:debug] > 4
+      return feas
     end
 
-=begin
     ##
-    # Returns the feasible set (all indexes of violated constraints)
-    def feasible_set(x)
-      ret = []
+    # Returns true if a point is infeasible
+    def infeasible?(x)
+      cnt = []
       @constraints.each do |c|
-        next if c.type == :equality
-
+        cnt << is_violated?(c,x)
       end
-    end
-=end
-
-    private
-    ##
-    # Returns the Lagrange function value for a defined problem, in the form of a `Proc`
-    def lagrange(x)
-      return @lagrange.call(x)
+      puts inspect_constraints(x) if @options[:debug] > 4
+      return cnt.include? true
     end
 
     ##
-    # Returns the Lagrange derivative for a defined problem, in the form of a `Proc`
-    def lagrange_x(x)
-      return @lagrange_x.call(x)
-    end
-
-    ##
-    # Returns the Lagrange second derivative for a defined problem, in the form of a `Proc`
-    def lagrange_xx(x)
-      return @lagrange_xx.call(x)
-    end
-
-    ##
-    # Returns the Lagrange constraints value for a defined problem, in the form of a `Proc`
-    def lagrange_lambda(x)
-      return @lagrange_lambda.call(x)
-    end
-
-    ##
-    # This function re-evaluate lagrange function (this will keep lagrange call faster)
-    def update_lagrange
-      @lagrange = Proc.new do |x|
-        value = @objective.f(x)
-        @contraints.each do |c|
-          value -= c.lamda * c.f(x)
-        end
-        return value
-      end
-
-      @lagrange_x = Proc.new do |x|
-        value = @objective.g(x)
-        @constraints.each do |c|
-          value -= c.lambda * c.g(x)
-        end
-      end
-
-      @lagrange_xx = Proc.new do |x|
-        value = @objective.h(x)
-        @constraints.each do |c|
-          value -= c.lambda * c.h(x)
-        end
-      end
-
-      @lagrange_lambda = Proc.new do |x|
-        value = NMatrix.zeroes([@constraints.size, 1])
-        @constraints.each_with_index do |c, i|
-          value[i, 0] = c.f(x)
-        end
-      end
-    end
-  end
-
-  ##
-  # Class that represents a quadratic optimizer with active set search.
-  class QuadraticOptimizer < Algorithm
-    # Active set
-    attr_reader :active_set
-
-    ##
-    # Initializer for our quadratic optimizer with active set
-    def initialize(options, objective)
-      raise ArgumentError, "Objective function must be a QuadraticObjectiveFunction" unless objective.is_a? QuadraticObjectiveFunction
-      super(options, objective)
-    end
-
-    ##
-    # Add a constraint. It could be only of the linear type
-    def add_constraint(c)
-      raise ArgumentError, "This algorithm accepts only linear constraint" unless c.is_a? LinearConstraintFunction
-      super(c)
-    end
-
-    ##
-    # Solves algorithm when a
-    def solve(x0)
-      raise ArgumentError, "Initial guess must be a vector" unless x0.is_a? NMatrix
-      raise ArgumentError, "x0 has a wrong size. Must be of size #{@size} x 1" unless (x0.shape == [@size, 1])
-
-      puts "Starting optimization problem".green if @options[:debug] > 0
-      puts " - Reordering constraints".green if @options[:debug] > 0
-      reorder_constraints
-      puts " - Cholesky factorization for H matrix and g vector".green if @options[:debug] > 0
-      cholesky
-
-      x = x0
-
-      puts " - Evaluating initial active set".green if @options[:debug] > 0
-      active_set(x)
-      puts "   A = #{@active_set}".yellow if @options[:debug] > 0
-
-      puts " - Starting solution loop".green if @options[:debug] > 0
-      loop do
-        puts "  -- Soving quadratic programming problem".green if @options[:debug] > 1
-        z, lambdas = q_problem
-
-
-        if not feasible? z
-          x = line_problem(z, x)
-          active_set(x)
-        else
-          x = z
-          feasible_set(x, lambdas)
-          if @feasible_set == []
-            break
-          else
-            active_set(x)
-          end
-        end
-      end
-      return x
-    end
-
-    private
-    ##
-    # Executes a line search to find the best point on the contraints
-    def line_problem(z, x)
-      t_set = []
-      @constraints.each do |c|
-        if (c.type == :inequality and c.f(z) < 0.0)
-          t = (-c.b - (c.a.transpose.dot(x))[0])/((c.a.transpose.dot((x - z)))[0])
-          #raise RuntimeError, "t is too big: 0 <= t = #{t} <= 1" if (t < 0 or t > 1)
-          t_set << t
-        end
-      end
-      t_set.each_with_index { |t,i| (@active_set - [i]) + [i] if t == t_set.min }
-      ret = x + ((x - z) * t_set.min)
-      return ret
-    end
-
-    ##
-    # Evaluates the active set for the defined step. Also evaluate active inequality set
-    def active_set(x)
-      @active_set = []
-      @constraints.each_with_index do |c, j|
-        case c.type
-          when :equality
-            @active_set << j
-          when :inequality
-            @active_set << j if c.active? x
-        end
-      end
-    end
-
-    ##
-    # Creates a new feasible set
-    def feasible_set(x, lambdas)
-      @feasible_set = []
-      @active_set.each_with_index do |j, i|
-        @feasible_set << j if lambdas[i] < 0
-      end
-    end
-
-    ##
-    # Extracts matrix A and vector b given the active set
-    def active_set_matrix
-      a_ary = []
-      b_ary = []
-      @active_set.each do |j|
-        a_ary << @constraints[j].a.to_flat_array
-        b_ary << @constraints[j].b
-      end
-      a_matrix = NMatrix.new([@size, @active_set.size], a_ary.flatten)
-      b_matrix = NMatrix.new([@active_set.size, 1], b_ary.flatten)
-      return a_matrix, b_matrix
-    end
-
-    ##
-    # Evaluate Cholesky decomposition, used in subproblem solution
-    def cholesky
-      @c, @ct = @objective.s.factorize_cholesky
-      @l = @c.invert
-      @lt = @l.transpose
-      @g = @objective.b
-      @hinv = @lt.dot(@lt)
-      @d = @hinv.dot(@g)
-    end
-
-    ##
-    # Move to the first positions equality constraints. Used to define the active set.
-    def reorder_constraints
-      eq = []
-      ineq = []
-      @constraints.each do |c|
-        eq << c.dup if c.type == :equality
-        ineq << c.dup if c.type == :inequality
-      end
-      @constraints = []
-      eq.each do |c|; @constraints << c; end
-      ineq.each do |c|; @constraints << c; end
-    end
-
-    ##
-    # Returns solution for the sub-problem
-    def q_problem
-      puts "A = " + @active_set.to_s.green
-      binding.pry
-      if @active_set != []
-        a, b = active_set_matrix
-        ginv = a.transpose.dot(@hinv.dot(a)).invert
-
-        lambdas = ginv.dot(a.transpose.dot(@d) - b)
-        xs      = @hinv.dot(a.dot(lambdas) - @g)
+    # Evaluated if a constraints is violated with respect to
+    # configured error
+    def is_violated?(c, x)
+      if c.type == :equality
+        return ((c.f(x)).abs > @options[:tolerance])
       else
-        lambdas = nil
-        xs = @d
+        return (c.f(x) < -@options[:tolerance])
       end
-      puts "x = " + xs.to_s.red
-      puts "λ = " + lambdas.to_s.yellow
-      return xs, lambdas
+    end
+
+    ##
+    # Inspect constraint status
+    def inspect_constraints(x = nil)
+      output = " ---- Constraints status\n".green
+      @constraints.each_with_index do |c, i|
+        output += ("      #{i+1}) c(#{x ? x.to_flat_array : 'x'}) #{c.type == :equality ? '=' : '≥'} 0? #{x ? (is_violated?(c,x) ? 'violated' : 'not violated') : ''} " + "[ c(x) = #{c.f(x)}]" + "\n").yellow
+      end
+      return output
     end
   end
+
+  load './general_quadratic_optimizer.rb'
 end
 
 if $0 == __FILE__ then
+
+=begin
   # Definition of the objective function
   m = N[[1.0,2.0,0.0],
         [0.0,3.0,1.0],
@@ -351,12 +154,51 @@ if $0 == __FILE__ then
   cnt_z = Optimization::LinearConstraintFunction.new(:inequality, a, b)
 
   # Creation of a new test scenario
-  alg = Optimization::QuadraticOptimizer.new({debug: 10 > 0}, obj)
+  alg = Optimization::QuadraticOptimizer.new({debug: 10, iterations: 100}, obj)
   alg.add_constraint(cnt)
   alg.add_constraint(cnt_x)
   alg.add_constraint(cnt_y)
   alg.add_constraint(cnt_z)
-  x = alg.solve(NMatrix.new([3,1], [33.0, 33.0, 33.0]))
+
+  x0 = NMatrix.new([3,1], [11.0/3.0, -2.0/3.0, 1.0/3.0])
+  x = alg.solve(x0)
+=end
+
+  # Objective function
+  m = NMatrix.new [2,2], [3.0, -1.0, -2.0, 7.0]
+  g = NMatrix.new [2,1], [2.0, -3.0]
+  c = 4.0
+  obj = Optimization::QuadraticObjectiveFunction.new m, g, c
+
+  # Constraint :: y + 1 >= 0
+  a1 = NMatrix.new [2,1], [0.0, 1.0]
+  b1 = 1.0
+  cnt1 = Optimization::LinearConstraintFunction.new :inequality, a1, b1
+
+  # Constraint :: x + 1 >= 0
+  a2 = NMatrix.new [2,1], [1.0, 0.0]
+  b2 = 1.0
+  cnt2 = Optimization::LinearConstraintFunction.new :inequality, a2, b2
+
+  # Constraint :: - x - y >= 0
+  a3 = NMatrix.new [2,1], [-1.0, -1.0]
+  b3 = 0.0
+  cnt3 = Optimization::LinearConstraintFunction.new :inequality, a3, b3
+
+  # Constraint :: 12/19 * x + y = 0
+  a4 = NMatrix.new [2,1], [12.0/19.0, 1.0]
+  b4 = 0.0
+  cnt4 = Optimization::LinearConstraintFunction.new :equality, a4, b4
+
+  # Creation of a new test scenario
+  alg = Optimization::QuadraticOptimizer.new({debug: 10, iterations: 100}, obj)
+  alg.add_constraint(cnt1)
+  alg.add_constraint(cnt2)
+  alg.add_constraint(cnt3)
+  alg.add_constraint(cnt4)
+
+  x0 = NMatrix.new [2,1], [0.0, 0.0]
+  x = alg.solve x0
 
   binding.pry
 end

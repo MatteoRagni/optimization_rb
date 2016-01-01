@@ -46,14 +46,14 @@ equations:
     data: |-
       \arraycolsep=1.4pt\def\arraystretch{2.2}
       \begin{array}{rcl}
-      \xx & = & \mathrm{arg}~\underset{\xx}{\mathrm{min}} ~ \dfrac{1}{2} \xx^{T} < \xx + \mathbf{g}^{T}\xx + c \\
+      \xx & = & \mathrm{arg}~\underset{\xx}{\mathrm{min}} ~ \dfrac{1}{2} \xx^{T} M \xx + \mathbf{g}^{T}\xx + c \\
       \mathrm{subject~to} & & A^{T} \xx + \mathbf{b} = 0 \qquad j \in \activeset({\xx})
       \end{array}
 
   - name: eq_lagrange_formula
     options:
     data: |-
-      \mathcal{L} = \dfrac{1}{2} \xx^{T} M \xx + \lambda~\left(\mathbf{g}^{T}\xx + A^{T} \xx + \mathbf{b}\right)
+      \mathcal{L} = \dfrac{1}{2} \xx^{T} M \xx + \mathbf{g}^{T}\xx - \lambda~\left( A^{T} \xx + \mathbf{b}\right)
 
   - name: eq_system_of_eq
     options:

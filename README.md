@@ -100,7 +100,7 @@ The final solution for the optimization problem stated in _(4)_ is the following
 
 ![supbroblem solution](.readme/eq_system_solution.gif)
 
-Solution of _(13)_ will be called also: **x**, _λ_ = k()
+Solution of _(13)_ will be called also: **x**, _λ = q(A)_
 
 #### From active set to feasible set
 
