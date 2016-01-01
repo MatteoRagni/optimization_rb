@@ -126,9 +126,10 @@ as algorithm:
 def best_on_line(z, x)
   t_set = []
   Φ.each do |j|
-    t_set << (b[j] - at[j] * x) / (at[j] * (z - x))
+    t_set << (b[j] - at[j] * x) / (at[j] * (z - x))  # Searching scaling factor
   end
-  return x + t_set.min * (z - x)
+  active_set << t_set.select { |t| t == t_set.min }  # Updating active set
+  return x + t_set.min * (z - x)                     # Returning feasible point
 end
 ```
 
@@ -153,7 +154,6 @@ def GeneralQuadratic( x0 )
 
     if violates_constraints?(z)
       x = best_on_line(z, x)                 # cf. equation (16)
-      activeSet = active_set(x)
 
     else
       x = z
