@@ -63,10 +63,18 @@ module Optimization
         (c.is_a? ConstraintFunction or
          c.is_a? LinearConstraintFunction or
          c.is_a? QuadraticConstraintFunction)
-      raise ArgumentError, "Function must accept x of size #{@size}. Is of size #{c.size}" unless @size = c.size
+      raise ArgumentError, "Function must accept x of size #{@size}. Is of size #{c.size}" unless @size == c.size
       @eq_size += 1 if c.type == :equality
       @ineq_size += 1 if c.type == :inequality
       @constraints << c
+    end
+
+    ##
+    # Clear all the constraints resetting counters
+    def remove_constraints
+      @constraints = []
+      @eq_size     = 0
+      @ineq_size   = 0
     end
 
     ##
@@ -124,46 +132,6 @@ end
 
 if $0 == __FILE__ then
 
-=begin
-  # Definition of the objective function
-  m = N[[1.0,2.0,0.0],
-        [0.0,3.0,1.0],
-        [0.0,1.0,5.0]]
-  g = N[[-3.0],
-        [-2.0],
-        [-1.0]]
-  c = 35.0
-  obj = Optimization::QuadraticObjectiveFunction.new(m, g, c)
-  # The optimum is in x = { 3.66667, -0.66667, 0.33333}
-
-  # Defintion of a constraint on the minimum
-  a = NMatrix.new([3,1],[8.0/3.0, -5.0/3.0, -2.0/3.0])
-  b = -32.0/3.0
-  cnt = Optimization::LinearConstraintFunction.new(:inequality, a, b)
-
-  a = NMatrix.new([3,1],[1.0,0.0,0.0])
-  b = 0.0
-  cnt_x = Optimization::LinearConstraintFunction.new(:inequality, a, b)
-
-  a = NMatrix.new([3,1],[0.0,-1.0,0.0])
-  b = 0.0
-  cnt_y = Optimization::LinearConstraintFunction.new(:inequality, a, b)
-
-  a = NMatrix.new([3,1],[0.0,0.0,1.0])
-  b = 0.0
-  cnt_z = Optimization::LinearConstraintFunction.new(:inequality, a, b)
-
-  # Creation of a new test scenario
-  alg = Optimization::QuadraticOptimizer.new({debug: 10, iterations: 100}, obj)
-  alg.add_constraint(cnt)
-  alg.add_constraint(cnt_x)
-  alg.add_constraint(cnt_y)
-  alg.add_constraint(cnt_z)
-
-  x0 = NMatrix.new([3,1], [11.0/3.0, -2.0/3.0, 1.0/3.0])
-  x = alg.solve(x0)
-=end
-
   # Objective function
   m = NMatrix.new [2,2], [3.0, -1.0, -2.0, 7.0]
   g = NMatrix.new [2,1], [2.0, -3.0]
@@ -175,13 +143,13 @@ if $0 == __FILE__ then
   b1 = 1.0
   cnt1 = Optimization::LinearConstraintFunction.new :inequality, a1, b1
 
-  # Constraint :: x + 1 >= 0
+  # Constraint :: x + 1/4 >= 0
   a2 = NMatrix.new [2,1], [1.0, 0.0]
-  b2 = 1.0
+  b2 = 0.25
   cnt2 = Optimization::LinearConstraintFunction.new :inequality, a2, b2
 
   # Constraint :: - x - y >= 0
-  a3 = NMatrix.new [2,1], [-1.0, -1.0]
+  a3 = NMatrix.new [2,1], [0.0, 1.0]
   b3 = 0.0
   cnt3 = Optimization::LinearConstraintFunction.new :inequality, a3, b3
 
@@ -191,14 +159,15 @@ if $0 == __FILE__ then
   cnt4 = Optimization::LinearConstraintFunction.new :equality, a4, b4
 
   # Creation of a new test scenario
-  alg = Optimization::QuadraticOptimizer.new({debug: 10, iterations: 100}, obj)
+  alg = Optimization::GeneralQuadraticOptimizer.new({debug: 10, iterations: 100}, obj)
   alg.add_constraint(cnt1)
   alg.add_constraint(cnt2)
   alg.add_constraint(cnt3)
-  alg.add_constraint(cnt4)
+  #alg.add_constraint(cnt4)
 
   x0 = NMatrix.new [2,1], [0.0, 0.0]
   x = alg.solve x0
+
 
   binding.pry
 end

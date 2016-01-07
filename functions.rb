@@ -241,6 +241,12 @@ module Optimization
     def active?(x); f(x) <= 0; end
 
     ##
+    # Convert constraint in equality
+    def to_equality
+      return LinearConstraintFunction.new :equality, @a, @b
+    end
+
+    ##
     # Returns the lagrange term for the constraint
     def lagrange_term(x)
       return @lambda * f(x)

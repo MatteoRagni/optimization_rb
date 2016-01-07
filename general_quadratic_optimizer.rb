@@ -1,7 +1,55 @@
 module Optimization
   ##
-  # Class that represents a quadratic optimizer with active set search.
+  # Class to perform a simple constrained optimization
   class QuadraticOptimizer < Algorithm
+    ##
+    # Initializer for quadratic optimization algorithm
+    def initialize(options, objective)
+      raise ArgumentError, "Objective function must be a QuadraticObjectiveFunction" unless objective.is_a? QuadraticObjectiveFunction
+      super options, objective
+
+      # Initially allocated elements
+      @h     = @objective.s
+      @h_inv = @h.invert
+      @g     = @objective.g
+      @d     = @hinv.dot @g
+    end
+
+    ##
+    # Add a constraint to the problem. They could be only equality contraints, so inequalities will be converted in equalities
+    def add_constraints(c)
+      raise ArgumentError, "This algorithm accepts only linear constraint" unless c.is_a? LinearConstraintFunction
+      super c.to_equality
+    end
+
+    def solve
+      constraint_matrix                                                 # A, b
+      @w = (@a.transpose).dot(@hinv.dot(@a))                                  # W = (A^T) H^(-1) A
+      @w_pinv = (((@w.traspose).dot(@w)).inverse).dot(@w.transpose)       # W+ = (W^T W)^(-1) W^T
+
+      @lambdas = @w_pinv.dot((@a.traspose).dot(@d) + @b)                      # λ = W+ (A^T d + b)
+      @xs      = @h_inv.dot(@a.dot(lambdas) - @d)                       # x = H^(-1) (A λ - d)
+
+      return @xs, @lambdas
+    end
+
+    private
+    def constraint_matrix
+      a = []
+      b = []
+      @constraint.each do |c|
+        a << c.a.to_flat_array
+        b << c.b
+      end
+      @a = NMatrix.new [a.size, @size], a.flatten
+      @b = NMatrix.new [@size, 1]
+      return @a, @b
+    end
+  end
+
+  ##
+  # Class that represents a general quadratic optimizer with active set search.
+  class GeneralQuadraticOptimizer < Algorithm
     # Active set
     attr_reader :active_set
 
@@ -9,7 +57,7 @@ module Optimization
     # Initializer for our quadratic optimizer with active set
     def initialize(options, objective)
       raise ArgumentError, "Objective function must be a QuadraticObjectiveFunction" unless objective.is_a? QuadraticObjectiveFunction
-      super(options, objective)
+      super options, objective
     end
 
     ##
