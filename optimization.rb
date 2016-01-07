@@ -131,7 +131,7 @@ module Optimization
 end
 
 if $0 == __FILE__ then
-
+=begin
   # Objective function
   m = NMatrix.new [2,2], [3.0, -1.0, -2.0, 7.0]
   g = NMatrix.new [2,1], [2.0, -3.0]
@@ -167,7 +167,25 @@ if $0 == __FILE__ then
 
   x0 = NMatrix.new [2,1], [0.0, 0.0]
   x = alg.solve x0
+=end
 
+  Q = NMatrix.new [3,3],
+    [ 1.0, 0.0, 0.0,
+      0.0, 2.0, 0.0,
+      0.0, 0.0, 3.0]
+  G = NMatrix.new [3,1], [ 3.0, 2.0, 1.0 ]
+  C = 1.0
+  obj = Optimization::QuadraticObjectiveFunction.new Q, G, C
+
+  A1 = NMatrix.new [3,1], [ 1.0, 2.0, 3.0 ]
+  B1 = 0.0
+  c1 = Optimization::LinearConstraintFunction.new :equality, A1, B1
+
+  alg = Optimization::QuadraticOptimizer.new({debug: 10}, obj)
+  alg.add_constraint c1
+
+  x, lambdas = alg.solve
+  puts " -> x = #{x.to_flat_array}".yellow
 
   binding.pry
 end

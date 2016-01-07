@@ -11,8 +11,8 @@ module Optimization
       # Initially allocated elements
       @h     = @objective.s
       @h_inv = @h.invert
-      @g     = @objective.g
-      @d     = @hinv.dot @g
+      @g     = @objective.b
+      @d     = @h_inv.dot(@g)
     end
 
     ##
@@ -23,12 +23,14 @@ module Optimization
     end
 
     def solve
-      constraint_matrix                                                 # A, b
-      @w = (@a.transpose).dot(@hinv.dot(@a))                                  # W = (A^T) H^(-1) A
-      @w_pinv = (((@w.traspose).dot(@w)).inverse).dot(@w.transpose)       # W+ = (W^T W)^(-1) W^T
+      constraint_matrix
+      @w = (@a.transpose).dot(@h_inv.dot(@a))                         # W = (A^T) H^(-1) A
+      @w_pinv = (((@w.transpose).dot(@w)).inverse).dot(@w.transpose)  # W+ = (W^T W)^(-1) W^T
 
-      @lambdas = @w_pinv.dot((@a.traspose).dot(@d) + @b)                      # λ = W+ (A^T d + b)
-      @xs      = @h_inv.dot(@a.dot(lambdas) - @d)                       # x = H^(-1) (A λ - d)
+      #binding.pry
+
+      @lambdas = @w_pinv.dot((@a.transpose).dot(@d) + @b)             # λ = W+ (A^T d + b)
+      @xs      = @h_inv.dot(@a.dot(@lambdas)) - @d                    # x = H^(-1) (A λ) - d
 
       return @xs, @lambdas
     end
@@ -37,12 +39,12 @@ module Optimization
     def constraint_matrix
       a = []
       b = []
-      @constraint.each do |c|
+      @constraints.each do |c|
         a << c.a.to_flat_array
         b << c.b
       end
-      @a = NMatrix.new [a.size, @size], a.flatten
-      @b = NMatrix.new [@size, 1]
+      @a = NMatrix.new [@size, @constraints.size], a.flatten
+      @b = NMatrix.new [@constraints.size, 1], b
       return @a, @b
     end
   end
