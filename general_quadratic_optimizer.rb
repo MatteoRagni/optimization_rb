@@ -22,15 +22,19 @@ module Optimization
       super c.to_equality
     end
 
+    ##
+    # Solves analitically the quadratic optimization solver. This do not need an initial point.
     def solve
       constraint_matrix
-      @w = (@a.transpose).dot(@h_inv.dot(@a))                         # W = (A^T) H^(-1) A
-      @w_pinv = (((@w.transpose).dot(@w)).inverse).dot(@w.transpose)  # W+ = (W^T W)^(-1) W^T
+      @at = @a.transpose
 
-      #binding.pry
+      @w = @at.dot(@h_inv.dot(@a))                  # W = (A^T) H^(-1) A
+      @wt = @w.transpose
+      
+      @w_pinv = ((@wt.dot(@w)).inverse).dot(@wt)    # W+ = (W^T W)^(-1) W^T
 
-      @lambdas = @w_pinv.dot((@a.transpose).dot(@d) + @b)             # λ = W+ (A^T d + b)
-      @xs      = @h_inv.dot(@a.dot(@lambdas)) - @d                    # x = H^(-1) (A λ) - d
+      @lambdas = @w_pinv.dot(@at.dot(@d) + @b)      # λ = W+ (A^T d + b)
+      @xs      = @h_inv.dot(@a.dot(@lambdas)) - @d  # x = H^(-1) (A λ) - d
 
       return @xs, @lambdas
     end
