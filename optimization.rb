@@ -90,7 +90,8 @@ module Optimization
       @constraints.each do |c|
         feas = false if is_violated?(c,x)
       end
-      puts inspect_constraints(x) if @options[:debug] > 4
+      #puts inspect_constraints(x) if @options[:debug] > 4
+      info(inspect_constraints(x), 4, __method__, __LINE__)
       return feas
     end
 
@@ -119,11 +120,36 @@ module Optimization
     ##
     # Inspect constraint status
     def inspect_constraints(x = nil)
-      output = " ---- Constraints status\n".green
+      output = "Constraints status\n"
       @constraints.each_with_index do |c, i|
-        output += ("      #{i+1}) c(#{x ? x.to_flat_array : 'x'}) #{c.type == :equality ? '=' : '≥'} 0? #{x ? (is_violated?(c,x) ? 'violated' : 'not violated') : ''} " + "[ c(x) = #{c.f(x)}]" + "\n").yellow
+        output += " * #{i+1}) c(#{x ? x.to_flat_array : 'x'}) #{c.type == :equality ? '=' : '≥'} 0? #{x ? (is_violated?(c,x) ? 'violated' : 'not violated') : ''} " + "[ c(x) = #{c.f(x)}]" + "\n"
       end
       return output
+    end
+
+    def info(msg, level = 1, method = nil, line = nil)
+      color = case level
+      when 0
+       :light_yellow
+      when :result
+       :light_yellow
+       level = 0
+      when 1
+       :light_white
+      when 2
+       :light_blue
+      when 3
+       :light_green
+      when 4
+       :yellow
+      when 5
+       :light_red
+      else
+        :white
+      end
+      puts "#{method ? "#{method}:" : ""}#{line ? "#{line}:" : ""} " +
+            (level == 0 ? " --> ".colorize(:light_white) : "") +
+            msg.to_s.colorize(color) if @options[:debug] > level
     end
   end
 
@@ -131,7 +157,7 @@ module Optimization
 end
 
 if $0 == __FILE__ then
-=begin
+
   # Objective function
   m = NMatrix.new [2,2], [3.0, -1.0, -2.0, 7.0]
   g = NMatrix.new [2,1], [2.0, -3.0]
@@ -167,8 +193,8 @@ if $0 == __FILE__ then
 
   x0 = NMatrix.new [2,1], [0.0, 0.0]
   x = alg.solve x0
-=end
 
+=begin
   Q = NMatrix.new [3,3],
     [ 1.0, 0.0, 0.0,
       0.0, 2.0, 0.0,
@@ -186,6 +212,6 @@ if $0 == __FILE__ then
 
   x, lambdas = alg.solve
   puts " -> x = #{x.to_flat_array}".yellow
-
-  binding.pry
+=end
+  #binding.pry
 end

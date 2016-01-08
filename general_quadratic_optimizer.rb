@@ -9,6 +9,7 @@ module Optimization
       super options, objective
 
       # Initially allocated elements
+      info "Assets pre-allocation", 1
       @h     = @objective.s
       @h_inv = @h.invert
       @g     = @objective.b
@@ -30,7 +31,7 @@ module Optimization
 
       @w = @at.dot(@h_inv.dot(@a))                  # W = (A^T) H^(-1) A
       @wt = @w.transpose
-      
+
       @w_pinv = ((@wt.dot(@w)).inverse).dot(@wt)    # W+ = (W^T W)^(-1) W^T
 
       @lambdas = @w_pinv.dot(@at.dot(@d) + @b)      # λ = W+ (A^T d + b)
@@ -40,6 +41,8 @@ module Optimization
     end
 
     private
+    ##
+    # Evaluates the constraint matrix to be used for the optimization routines
     def constraint_matrix
       a = []
       b = []
@@ -78,46 +81,41 @@ module Optimization
     def solve(x0)
       raise ArgumentError, "Initial guess must be a vector" unless x0.is_a? NMatrix
       raise ArgumentError, "x0 has a wrong size. Must be of size #{@size} x 1" unless (x0.shape == [@size, 1])
-      binding.pry if ARGV.include? "-d"
-      puts "Starting optimization problem".green if @options[:debug] > 0
+      info "Starting optimization problem", 2
       reorder_constraints
 
-      puts " - Cholesky factorization for H matrix and g vector".green if @options[:debug] > 0
+      info "Preallocation for the assets", 4
       preparation
 
       x = x0
 
-      puts " - Evaluating initial active set".green if @options[:debug] > 0
+      info "Initial evaluation for the Active Set A(x)", 4
       active_set(x)
 
-      puts " - Starting solution loop".green if @options[:debug] > 0
+      info "Starting solution loop", 4
       iter = 0
 
       while (iter != @options[:iterations]) do
         iter += 1
 
-        puts " -- Soving quadratic programming problem".green if @options[:debug] > 1
+        info "Solving quadratic programming problem", 2
         z, lambdas = q_problem
-        puts "    z = #{x.to_flat_array}".yellow if @options[:debug] > 1
-        puts "    λ = #{(lambdas ? lambdas.to_flat_array : 'empty vector')}".yellow if @options[:debug] > 1
+        info "z = #{x.to_flat_array}", :result
+        info "λ = #{(lambdas ? lambdas.to_flat_array : 'empty vector')}", :result
 
         if not feasible?(z)
-          puts "  --- Point is not feasible.".green if @options[:debug] > 1
+          puts "Point is not feasible", 2
           x = line_problem(z, x)
-          #active_set(x)
-
         else
           x = z
           feasible_set(x, lambdas)
           if @feasible_set == []
             break
           else
-            #active_set(x)
             @active_set -= @feasible_set
           end
         end
       end
-      binding.pry if ARGV.include? "-d"
       return x
     end
 
@@ -138,21 +136,21 @@ module Optimization
         lambdas = nil
         xs = -@d
       end
-      binding.pry if ARGV.include? "-d"
       return xs, lambdas
     end
 
     ##
     # Executes a line search to find the best point on the contraints
     def line_problem(z, x)
-      puts " ---- Performing line search".green if @options[:debug] > 2
-      puts "      x = #{x.to_flat_array}".yellow if @options[:debug] > 2
-      puts "      z = #{z.to_flat_array}".yellow if @options[:debug] > 2
+      info "Performing line search for on points:", 4
+      info "x = #{x.to_flat_array}", :result
+      info "z = #{z.to_flat_array}", :result
       t_set = []
-      @constraints.each do |c|
-        puts " ---- New constraint checked" if @options[:debug] > 4
+
+      @constraints.each_with_index do |c, idx|
+        info "Checking constraint", 5
         if (c.type == :inequality and c.f(z) < 0.0)
-          print " ---- Constraint violated: ".green if @options[:debug] > 2
+          info "Constraint #{idx + 1} violated", 3
           t = (-c.b - (c.a.transpose.dot(x))[0])/((c.a.transpose.dot((x - z)))[0])
           #raise RuntimeError, "t is too big: 0 <= t = #{t} <= 1" if (t < 0 or t > 1)
           t_set << t
@@ -161,15 +159,15 @@ module Optimization
       end
       t_set.each_with_index { |t,i|; (@active_set - [i]) + [i] if t == t_set.min }
       ret = x + ((x - z) * t_set.min)
-      puts " ---- New point considered: ".green if @options[:debug] > 2
-      puts "      x = #{ret.to_flat_array}".yellow if @options[:debug] > 2
+      info "New point considered", 5
+      info "x* = #{ret.to_flat_array}", :result
       return ret
     end
 
     ##
     # Evaluates the active set for the defined step. Also evaluate active inequality set
     def active_set(x)
-      puts " ---- Evaluating active set".green if @options[:debug] > 2
+      info "Evaluating active set", 2
       @active_set = []
       @constraints.each_with_index do |c, j|
         case c.type
@@ -179,18 +177,18 @@ module Optimization
             @active_set << j if c.active? x
         end
       end
-      puts "     A = #{@active_set}".yellow if @options[:debug] > 0
+      info "A = #{@active_set}", :result
     end
 
     ##
     # Creates a new feasible set
     def feasible_set(x, lambdas)
-      puts " ---- Checking feasible set".green if @options[:debug] > 4
+      info "Checking feasible set", 4
       @feasible_set = []
       @active_set.each_with_index do |j, i|
-        @feasible_set << j if lambdas[i] < 0 # -@options[:tolerance]
+        @feasible_set << j if lambdas[i] < -@options[:tolerance] # This is a little trick? will we use that?
       end
-      puts "      Φ = #{@feasible_set}".yellow if @options[:debug] > 4
+      info "Φ = #{@feasible_set}", :result
     end
 
     ##
@@ -218,7 +216,7 @@ module Optimization
     ##
     # Move to the first positions equality constraints. Used to define the active set.
     def reorder_constraints
-      puts " - Reordering constraints".green if @options[:debug] > 0
+      info "Reordering constraints", 1
       eq = []
       ineq = []
       @constraints.each do |c|
